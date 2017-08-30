@@ -1,34 +1,53 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace WordSplitter
 {
     public class WordSplitter : IWordSplitter
     {
-        public List<Word> ReadFileAsync(string filePath)
+        private Regex pattern;
+
+        public WordSplitter()
         {
-            List<Word> words = new List<Word>();
+            pattern = new Regex(@"[a-zA-Z0-9]{2,}",
+             RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
+        }
+
+        public Dictionary<string, List<int>> ReadFile(string filePath)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            //List<Word> words = new List<Word>();
+            var words = new Dictionary<string, List<int>>();
             int lineCount = 1;
 
             try
             {
-                using (StreamReader sr = new StreamReader(filePath))
+                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    string nextLine;
-                    while ((nextLine = sr.ReadLine()) != null)
+                    using (BufferedStream bs = new BufferedStream(fs))
                     {
-                        AddWordFromLineToWordList(SplitLineIntoWords(nextLine), words, lineCount);
-                        lineCount++;
+                        using (StreamReader sr = new StreamReader(bs))
+                        {
+                            string nextLine;
+                            while ((nextLine = sr.ReadLine()) != null)
+                            {
+                                AddWordFromLineToWordList(SplitLineIntoWords(nextLine), words, lineCount);
+                                lineCount++;
+                            }
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
             }
+
+            watch.Stop();
+            var elapsedMs = watch.ElapsedMilliseconds;
+            Console.WriteLine(elapsedMs);
 
             return words;
         }
@@ -39,22 +58,18 @@ namespace WordSplitter
         /// <param name="wordsLine"></param>
         /// <param name="words"></param>
         /// <param name="lineIndex"></param>
-        private void AddWordFromLineToWordList(List<string> wordsLine, List<Word> words, int lineIndex)
+        private void AddWordFromLineToWordList(List<string> wordsLine, Dictionary<string, List<int>> words, int lineIndex)
         {
-            foreach (string word in wordsLine)
+            int size = wordsLine.Count;
+            for (int i = 0; i < size; i++)
             {
-                if (!words.Exists(w => w.Text == word))
+                if (words.TryGetValue(wordsLine[i], out List<int> ret))
                 {
-                    Word wor = new Word()
-                    {
-                        Text = word
-                    };
-                    wor.LineNumbers.Add(lineIndex);
-                    words.Add(wor);
+                    words[wordsLine[i]].Add(lineIndex);
                 }
                 else
                 {
-                    words.SingleOrDefault(w => w.Text == word).LineNumbers.Add(lineIndex);
+                    words[wordsLine[i]] = new List<int> { lineIndex };
                 }
             }
         }
@@ -68,29 +83,23 @@ namespace WordSplitter
         {
             List<string> lineWords = new List<string>();
 
-            var pattern = new Regex(
-                @"( [A-Za-z0-9]
-                ([A-Za-z0-9])*
-                [A-Za-z0-9])",
-                RegexOptions.IgnorePatternWhitespace);
-            // # starting with a letter # followed by #   more letters or # and finishing with a letter
 
             foreach (Match m in pattern.Matches(lineText))
             {
-                lineWords.Add(m.Groups[1].Value.ToLower());
+                lineWords.Add(m.Groups[0].Value.ToLower());
             }
 
             return lineWords;
         }
 
-        public async Task WriteAsync(string path, List<Word> words)
+        public void Write(string path, Dictionary<string, List<int>> words)
         {
             DeleteFile(path);
             CreateFile(path);
-
-            foreach (Word word in words)
+            var sortedWords = new SortedDictionary<string, List<int>>(words);
+            foreach (var word in sortedWords)
             {
-                await WriteWordsAndLineNumbersAsync(path, word);
+                WriteWordsAndLineNumbersAsync(path, word);
             }
         }
 
@@ -100,27 +109,27 @@ namespace WordSplitter
         /// <param name="path"></param>
         /// <param name="word"></param>
         /// <returns></returns>
-        private async Task WriteWordsAndLineNumbersAsync(string path, Word word)
+        private void WriteWordsAndLineNumbersAsync(string path, KeyValuePair<string, List<int>> word)
         {
             try
             {
                 using (FileStream fs = new FileStream(path, FileMode.Append,
-                    FileAccess.Write, FileShare.Write, 4096, useAsync: true))
+                    FileAccess.Write, FileShare.Write, 4096))
                 {
                     using (StreamWriter sw = new StreamWriter(fs))
                     {
-                        await sw.WriteAsync(word.Text + " ");
+                        sw.Write(word.Key + " ");
 
-                        int size = word.LineNumbers.Count;
+                        int size = word.Value.Count;
                         for (int i = 0; i < size; i++)
                         {
                             if (i < size - 1)
                             {
-                                await sw.WriteAsync(word.LineNumbers[i] + ", ");
+                                sw.Write(word.Value[i] + ", ");
                             }
                             else
                             {
-                                await sw.WriteAsync(word.LineNumbers[i].ToString());
+                                sw.Write(word.Value[i].ToString());
                             }
                         }
                         sw.Write(Environment.NewLine);
@@ -164,6 +173,4 @@ namespace WordSplitter
             }
         }
     }
-
-    
 }

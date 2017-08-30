@@ -1,23 +1,22 @@
 ﻿using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace WordSplitter
 {
     public interface IWordSplitter
     {
         /// <summary>
-        /// Reads file from path asynchronously
+        /// Reads file from path synchronously
         /// </summary>
         /// <param name="filePath"></param>
-        /// <returns> Returns list of words with they row index location </returns>
-        List<Word> ReadFileAsync(string filePath);
+        /// <returns> Returns dictionary where word is a key with they row index locations of the word </returns>
+        Dictionary<string, List<int>> ReadFile(string filePath);
 
         /// <summary>
-        /// Writes to file in the path asynchronously
+        /// Writes to file in the path synchronously
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="words"></param>
         /// <returns></returns>
-        Task WriteAsync(string filePath, List<Word> words);
+        void Write(string filePath, Dictionary<string, List<int>> words);
     }
 }

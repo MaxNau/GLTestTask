@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Threading.Tasks;
 using WordSplitter;
 
 namespace GLTestTask
@@ -13,14 +12,8 @@ namespace GLTestTask
             string outPath = CheckAndGetFilePath("Path to file you want to write. File will be rewriten: ");
 
             IWordSplitter ws = new WordSplitter.WordSplitter();
-            Task.Run(async () => 
-            {
-                await ws.WriteAsync(outPath, 
-                                    ws.ReadFileAsync(inPath));
-            })
-            .GetAwaiter()
-            .GetResult();
 
+            ws.Write(outPath, ws.ReadFile(inPath));
         }
 
         private static string CheckAndGetFilePath(string message)
